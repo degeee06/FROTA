@@ -151,9 +151,11 @@ export const completeLog = async (id: string, endKm: number): Promise<TripLog> =
 
   const formattedLog: TripLog = {
     id: updatedLogData.id,
-    driverName: updatedLogData.driver.name,
-    vehicle: updatedLogData.vehicle.model,
-    licensePlate: updatedLogData.vehicle.license_plate,
+    // FIX: The Supabase client's type inference incorrectly suggests an array for what should be a single object relationship.
+    // Casting to `any` to bypass the type error and align with the expected runtime object structure, consistent with the `getLogs` function.
+    driverName: (updatedLogData.driver as any).name,
+    vehicle: (updatedLogData.vehicle as any).model,
+    licensePlate: (updatedLogData.vehicle as any).license_plate,
     origin: updatedLogData.origin,
     destination: updatedLogData.destination,
     startKm: updatedLogData.start_km,
