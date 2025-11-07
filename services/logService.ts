@@ -35,8 +35,8 @@ export const getLogs = async (options: { page?: number, limit?: number, driverId
     .from('trip_logs')
     .select(`
       id, origin, destination, start_km, end_km, start_time, end_time, status,
-      driver:profiles(full_name),
-      vehicle:vehicles(model, license_plate)
+      profiles(full_name),
+      vehicles(model, license_plate)
     `, { count: 'exact' })
     .order('start_time', { ascending: false });
 
@@ -59,9 +59,9 @@ export const getLogs = async (options: { page?: number, limit?: number, driverId
 
   const formattedLogs: TripLog[] = data.map((log: any) => ({
     id: log.id,
-    driverName: log.driver.full_name,
-    vehicle: log.vehicle.model,
-    licensePlate: log.vehicle.license_plate,
+    driverName: log.profiles?.full_name || 'Motorista não encontrado',
+    vehicle: log.vehicles?.model || 'Veículo não encontrado',
+    licensePlate: log.vehicles?.license_plate || 'N/A',
     origin: log.origin,
     destination: log.destination,
     startKm: log.start_km,
@@ -136,8 +136,8 @@ export const completeLog = async (id: string, endKm: number): Promise<TripLog> =
     .eq('id', id)
     .select(`
         id, origin, destination, start_km, end_km, start_time, end_time, status,
-        driver:profiles(full_name),
-        vehicle:vehicles(model, license_plate)
+        profiles(full_name),
+        vehicles(model, license_plate)
     `)
     .single();
 
@@ -146,13 +146,14 @@ export const completeLog = async (id: string, endKm: number): Promise<TripLog> =
     throw new Error('Falha ao completar o registro.');
   }
 
+  const profiles = updatedLogData.profiles as any;
+  const vehicles = updatedLogData.vehicles as any;
+
   const formattedLog: TripLog = {
     id: updatedLogData.id,
-    // FIX: The Supabase client's type inference incorrectly suggests an array for what should be a single object relationship.
-    // Casting to `any` to bypass the type error and align with the expected runtime object structure, consistent with the `getLogs` function.
-    driverName: (updatedLogData.driver as any).full_name,
-    vehicle: (updatedLogData.vehicle as any).model,
-    licensePlate: (updatedLogData.vehicle as any).license_plate,
+    driverName: profiles?.full_name || 'Motorista não encontrado',
+    vehicle: vehicles?.model || 'Veículo não encontrado',
+    licensePlate: vehicles?.license_plate || 'N/A',
     origin: updatedLogData.origin,
     destination: updatedLogData.destination,
     startKm: updatedLogData.start_km,
