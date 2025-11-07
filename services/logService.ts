@@ -35,7 +35,7 @@ export const getLogs = async (options: { page?: number, limit?: number, driverId
     .from('trip_logs')
     .select(`
       *,
-      profiles ( full_name ),
+      drivers ( name ),
       vehicles ( model, license_plate )
     `, { count: 'exact' })
     .order('start_time', { ascending: false });
@@ -59,7 +59,7 @@ export const getLogs = async (options: { page?: number, limit?: number, driverId
 
   const formattedLogs: TripLog[] = data.map((log: any) => ({
     id: log.id,
-    driverName: log.profiles?.full_name || 'Motorista não encontrado',
+    driverName: log.drivers?.name || 'Motorista não encontrado',
     vehicle: log.vehicles?.model || 'Veículo não encontrado',
     licensePlate: log.vehicles?.license_plate || 'N/A',
     origin: log.origin,
@@ -136,7 +136,7 @@ export const completeLog = async (id: string, endKm: number): Promise<TripLog> =
     .eq('id', id)
     .select(`
         *,
-        profiles ( full_name ),
+        drivers ( name ),
         vehicles ( model, license_plate )
     `)
     .single();
@@ -146,12 +146,12 @@ export const completeLog = async (id: string, endKm: number): Promise<TripLog> =
     throw new Error('Falha ao completar o registro.');
   }
 
-  const profiles = updatedLogData.profiles as any;
+  const drivers = updatedLogData.drivers as any;
   const vehicles = updatedLogData.vehicles as any;
 
   const formattedLog: TripLog = {
     id: updatedLogData.id,
-    driverName: profiles?.full_name || 'Motorista não encontrado',
+    driverName: drivers?.name || 'Motorista não encontrado',
     vehicle: vehicles?.model || 'Veículo não encontrado',
     licensePlate: vehicles?.license_plate || 'N/A',
     origin: updatedLogData.origin,

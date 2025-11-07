@@ -59,7 +59,7 @@ export const Login: React.FC = () => {
     }
 
     try {
-        const { error } = await supabase.auth.signUp({
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
             email: `${badgeNumber}@frota.app`,
             password: signupPassword,
             options: {
@@ -69,7 +69,24 @@ export const Login: React.FC = () => {
                 }
             }
         });
-        if (error) throw error;
+        if (signUpError) throw signUpError;
+        
+        // CRITICAL STEP: Create a corresponding entry in the `drivers` table
+        // This is necessary to satisfy the foreign key constraint on `trip_logs`
+        if (signUpData.user) {
+            const { error: driverError } = await supabase
+                .from('drivers')
+                .insert({ id: signUpData.user.id, name: fullName });
+            
+            if (driverError) {
+                // If this fails, the user is created but the app will be broken for them.
+                // In a real-world app, you might want to delete the auth user here.
+                throw new Error(`A conta foi criada, mas falhou ao registrar o motorista: ${driverError.message}`);
+            }
+        } else {
+             throw new Error("Não foi possível obter os dados do usuário após o cadastro.");
+        }
+        
         // The onAuthStateChange listener will pick up the new user and log them in
     } catch (error: any) {
         setError(error.message || "Ocorreu um erro ao criar a conta.");
