@@ -2,29 +2,92 @@ import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
 import { CarIcon } from './icons/CarIcon';
 
+type Mode = 'login' | 'signup';
+
 export const Login: React.FC = () => {
+  const [mode, setMode] = useState<Mode>('login');
   const [loading, setLoading] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+
+  // States for login
+  const [identifier, setIdentifier] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+
+  // States for signup
+  const [fullName, setFullName] = useState('');
+  const [badgeNumber, setBadgeNumber] = useState('');
+  const [signupPassword, setSignupPassword] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    
+    // Check if identifier is a badge number (all digits) or an email
+    const isBadge = /^\d+$/.test(identifier);
+    const emailToLogin = isBadge ? `${identifier}@frota.app` : identifier;
+
     try {
       const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+        email: emailToLogin,
+        password: loginPassword,
       });
-      if (error) throw error;
-      // The onAuthStateChange listener in App.tsx will handle navigation after successful login
+      if (error) {
+        if (error.message.includes('Email not confirmed')) {
+          throw new Error('Conta não confirmada. Por favor, desative a "Confirmação de email" no painel do Supabase > Authentication > Providers > Email.');
+        }
+        throw error;
+      }
+      // The onAuthStateChange listener in App.tsx will handle navigation
     } catch (error: any) {
-      setError(error.error_description || error.message || 'Falha no login. Verifique suas credenciais.');
+        console.error("Login error:", error);
+        setError(error.message || 'Falha no login. Verifique suas credenciais.');
     } finally {
       setLoading(false);
     }
   };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    if (!fullName || !badgeNumber || !signupPassword) {
+        setError("Todos os campos são obrigatórios para o cadastro.");
+        setLoading(false);
+        return;
+    }
+
+    try {
+        const { error } = await supabase.auth.signUp({
+            email: `${badgeNumber}@frota.app`,
+            password: signupPassword,
+            options: {
+                data: {
+                    full_name: fullName,
+                    badge_number: badgeNumber,
+                }
+            }
+        });
+        if (error) throw error;
+        // The onAuthStateChange listener will pick up the new user and log them in
+    } catch (error: any) {
+        setError(error.message || "Ocorreu um erro ao criar a conta.");
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const TabButton: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
+    <button
+      onClick={onClick}
+      className={`w-full py-3 text-sm font-bold transition-colors ${
+        active ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+      }`}
+    >
+      {children}
+    </button>
+  );
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-gray-900 px-4">
@@ -35,57 +98,37 @@ export const Login: React.FC = () => {
               Sistema de Frota
             </h2>
             <p className="mt-2 text-center text-sm text-gray-400">
-              Acesse sua conta para continuar
+              {mode === 'login' ? 'Acesse sua conta para continuar' : 'Crie sua conta de motorista'}
             </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <input
-                id="email-address"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-700 bg-gray-800 text-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm rounded-t-md"
-                placeholder="Endereço de e-mail"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-              />
+        
+        <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
+            <div className="flex">
+                <TabButton active={mode === 'login'} onClick={() => { setMode('login'); setError(null); }}>Entrar</TabButton>
+                <TabButton active={mode === 'signup'} onClick={() => { setMode('signup'); setError(null); }}>Cadastrar</TabButton>
             </div>
-            <div>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-3 border border-gray-700 bg-gray-800 text-white placeholder-gray-500 focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm rounded-b-md"
-                placeholder="Senha"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-          </div>
 
-          {error && (
-            <div className="p-3 bg-red-500/10 rounded-md">
-              <p className="text-sm text-red-400 font-semibold">{error}</p>
-            </div>
-          )}
-
-          <div>
-            <button
-              type="submit"
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-blue-500 disabled:bg-blue-800 disabled:cursor-not-allowed"
-              disabled={loading}
-            >
-              {loading ? 'Entrando...' : 'Entrar'}
-            </button>
-          </div>
-        </form>
+            {mode === 'login' ? (
+                <form className="p-8 space-y-6" onSubmit={handleLogin}>
+                    <input type="text" value={identifier} onChange={e => setIdentifier(e.target.value)} placeholder="Email ou Nº do Crachá" required className="w-full bg-gray-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" disabled={loading} />
+                    <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="Senha" required className="w-full bg-gray-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" disabled={loading} />
+                    {error && <p className="text-red-400 text-sm font-semibold">{error}</p>}
+                    <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-blue-800 disabled:cursor-not-allowed" disabled={loading}>
+                        {loading ? 'Entrando...' : 'Entrar'}
+                    </button>
+                </form>
+            ) : (
+                <form className="p-8 space-y-6" onSubmit={handleSignUp}>
+                    <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Nome Completo" required className="w-full bg-gray-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" disabled={loading} />
+                    <input type="text" value={badgeNumber} onChange={e => setBadgeNumber(e.target.value)} placeholder="Nº do Crachá" required className="w-full bg-gray-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" disabled={loading} />
+                    <input type="password" value={signupPassword} onChange={e => setSignupPassword(e.target.value)} placeholder="Senha" required className="w-full bg-gray-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" disabled={loading} />
+                    {error && <p className="text-red-400 text-sm font-semibold">{error}</p>}
+                    <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-blue-800 disabled:cursor-not-allowed" disabled={loading}>
+                        {loading ? 'Criando conta...' : 'Criar Conta'}
+                    </button>
+                </form>
+            )}
+        </div>
       </div>
     </div>
   );
