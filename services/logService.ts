@@ -3,7 +3,6 @@ import { supabase } from './supabaseClient';
 
 // Helper para encontrar ou criar um veículo, retornando seu ID.
 const getOrCreateVehicle = async (model: string, licensePlate: string): Promise<string> => {
-    // FIX: Added missing '=' for variable assignment.
     const cleanPlate = licensePlate.trim().toUpperCase();
     let { data: vehicle, error: selectError } = await supabase
         .from('vehicles')
@@ -11,7 +10,7 @@ const getOrCreateVehicle = async (model: string, licensePlate: string): Promise<
         .eq('license_plate', cleanPlate)
         .single();
 
-    if (selectError && selectError.code !== 'PGRST116') {
+    if (selectError && selectError.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine
         throw selectError;
     }
     
@@ -24,7 +23,8 @@ const getOrCreateVehicle = async (model: string, licensePlate: string): Promise<
         .single();
         
     if (insertError) throw insertError;
-    return newVehicle!.id;
+    if (!newVehicle) throw new Error("Failed to create vehicle.");
+    return newVehicle.id;
 };
 
 // Busca os logs do Supabase com opções de paginação e filtro por motorista
@@ -35,8 +35,8 @@ export const getLogs = async (options: { page?: number, limit?: number, driverId
     .from('trip_logs')
     .select(`
       *,
-      profiles!trip_logs_driver_id_fkey(full_name),
-      vehicles!trip_logs_vehicle_id_fkey(model, license_plate)
+      profiles ( full_name ),
+      vehicles ( model, license_plate )
     `, { count: 'exact' })
     .order('start_time', { ascending: false });
 
@@ -136,8 +136,8 @@ export const completeLog = async (id: string, endKm: number): Promise<TripLog> =
     .eq('id', id)
     .select(`
         *,
-        profiles!trip_logs_driver_id_fkey(full_name),
-        vehicles!trip_logs_vehicle_id_fkey(model, license_plate)
+        profiles ( full_name ),
+        vehicles ( model, license_plate )
     `)
     .single();
 
