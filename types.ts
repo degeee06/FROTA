@@ -1,41 +1,25 @@
-export type DayKey = 'Segunda' | 'Terça' | 'Quarta' | 'Quinta' | 'Sexta' | 'Sábado' | 'Domingo';
-
-export interface Profile {
-  id: string; // uuid from auth.users
-  updated_at?: string;
-  full_name: string;
-  employee_id: string;
-  role: 'super_admin' | 'admin' | 'employee';
+export enum LogStatus {
+  IN_PROGRESS = 'EM ANDAMENTO',
+  COMPLETED = 'CONCLUÍDO',
 }
 
-export interface AttendanceRecord {
-  id?: number;
-  user_id: string;
-  week_id: string;
-  day: DayKey;
-  is_present: boolean;
-  created_at?: string;
+export interface TripLog {
+  id: string;
+  driverName: string;
+  vehicle: string;
+  licensePlate: string;
+  origin: string; // Campo adicionado para rastrear a origem
+  destination: string;
+  startKm: number;
+  endKm?: number;
+  startTime: Date;
+  endTime?: Date;
+  status: LogStatus;
 }
 
-// This will be the transformed structure for easier use in components
-export type Attendance = {
-  [personId: string]: {
-    [day in DayKey]?: boolean;
-  };
-};
-
-export interface HistoryEntry {
-  weekId: string;
-  people: Profile[];
-  attendance: Attendance;
-}
-
-// FIX: Add PredictionResult type for the predictive analysis feature.
-export interface PredictionResult {
-  nextWeekId: string;
-  predictions: {
-    day: DayKey;
-    predicted_attendees: number;
-  }[];
-  insight: string;
+export interface UserProfile {
+  id: string;
+  role: 'ADMIN' | 'DRIVER';
+  fullName: string | null;
+  badgeNumber: string | null;
 }

@@ -1,5 +1,5 @@
 {
-  "name": " Arranchou Supabase",
-  "description": "Um aplicativo para gerenciar e rastrear a confirmação de refeições diárias para equipes. Funciona totalmente offline e permite backup, importação e exportação de dados em PDF.",
+  "name": "Controle de Frota",
+  "description": "Um aplicativo moderno para motoristas registrarem a quilometragem e informações de veículos da empresa, simplificando e automatizando o trabalho da portaria.",
   "requestFramePermissions": []
 }
