@@ -45,17 +45,23 @@ const App: React.FC = () => {
       .eq('id', userId)
       .single();
 
-    if (error) {
-      console.error('Error fetching user profile:', error);
+    // If a user is logged in but has no profile, it's an inconsistent state.
+    // This can happen if the user was created before the "create profile" trigger was active.
+    // The safest action is to log them out to prevent further errors.
+    if (error || !data) {
+      console.error('Inconsistent State: User profile not found for a logged-in session. Logging out.', error);
       setUserProfile(null);
-    } else if (data) {
-      setUserProfile({
-        id: data.id,
-        role: data.role,
-        fullName: data.full_name,
-        badgeNumber: data.badge_number,
-      });
+      await supabase.auth.signOut();
+      setLoading(false);
+      return;
     }
+    
+    setUserProfile({
+      id: data.id,
+      role: data.role,
+      fullName: data.full_name,
+      badgeNumber: data.badge_number,
+    });
     setLoading(false);
   };
 
