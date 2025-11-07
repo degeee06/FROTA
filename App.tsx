@@ -1,51 +1,93 @@
-
-import React, { useState } from 'react';
-import { Role } from './types';
+import React, { useState, useEffect } from 'react';
+import { supabase } from './services/supabaseClient';
+import { Session } from '@supabase/supabase-js';
 import { DriverPanel } from './components/DriverPanel';
 import { AdminPanel } from './components/AdminPanel';
-import { CarIcon } from './components/icons/CarIcon';
-import { AdminIcon } from './components/icons/AdminIcon';
-import { LogIcon } from './components/icons/LogIcon';
-
-const RoleSelector: React.FC<{ onSelect: (role: Role) => void }> = ({ onSelect }) => (
-  <div className="flex flex-col items-center justify-center min-h-screen p-4">
-    <div className="text-center mb-12">
-      <LogIcon className="mx-auto h-12 w-12 text-blue-400 mb-4" />
-      <h1 className="text-4xl font-bold text-white tracking-tight">Controle de Frota</h1>
-      <p className="mt-2 text-lg text-gray-400">Selecione seu perfil para continuar</p>
-    </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl">
-      <button
-        onClick={() => onSelect(Role.DRIVER)}
-        className="group bg-gray-800 p-8 rounded-xl shadow-lg hover:bg-blue-600/20 hover:ring-2 hover:ring-blue-500 transition-all duration-300 transform hover:-translate-y-1"
-      >
-        <CarIcon className="mx-auto h-16 w-16 text-gray-400 group-hover:text-blue-400 transition-colors" />
-        <h2 className="mt-6 text-2xl font-semibold text-white">Sou Motorista</h2>
-        <p className="mt-1 text-gray-400">Registrar minhas viagens</p>
-      </button>
-      <button
-        onClick={() => onSelect(Role.ADMIN)}
-        className="group bg-gray-800 p-8 rounded-xl shadow-lg hover:bg-purple-600/20 hover:ring-2 hover:ring-purple-500 transition-all duration-300 transform hover:-translate-y-1"
-      >
-        <AdminIcon className="mx-auto h-16 w-16 text-gray-400 group-hover:text-purple-400 transition-colors" />
-        <h2 className="mt-6 text-2xl font-semibold text-white">Sou Admin</h2>
-        <p className="mt-1 text-gray-400">Ver todos os registros</p>
-      </button>
-    </div>
-  </div>
-);
+import { Login } from './components/Login';
+import { UserProfile } from './types';
 
 const App: React.FC = () => {
-  const [role, setRole] = useState<Role>(Role.NONE);
+  const [session, setSession] = useState<Session | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check for an existing session on initial load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        setSession(session);
+        if (session?.user) {
+          fetchUserProfile(session.user.id);
+        } else {
+          setUserProfile(null);
+          setLoading(false);
+        }
+      }
+    );
+    
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const fetchUserProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, role, full_name, badge_number')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching user profile:', error);
+      setUserProfile(null);
+    } else if (data) {
+      setUserProfile({
+        id: data.id,
+        role: data.role,
+        fullName: data.full_name,
+        badgeNumber: data.badge_number,
+      });
+    }
+    setLoading(false);
+  };
+
+
+  const handleLogout = async () => {
+    setLoading(true);
+    await supabase.auth.signOut();
+    setUserProfile(null); // Explicitly clear profile on logout
+    setLoading(false);
+  };
 
   const renderContent = () => {
-    switch (role) {
-      case Role.DRIVER:
-        return <DriverPanel onBack={() => setRole(Role.NONE)} />;
-      case Role.ADMIN:
-        return <AdminPanel onBack={() => setRole(Role.NONE)} />;
+    if (loading) {
+      return (
+        <div className="flex justify-center items-center min-h-screen text-gray-400">
+            <p>Carregando sessão...</p>
+        </div>
+      );
+    }
+
+    if (!session || !userProfile) {
+      return <Login />;
+    }
+
+    switch (userProfile.role) {
+      case 'DRIVER':
+        return <DriverPanel userProfile={userProfile} onLogout={handleLogout} />;
+      case 'ADMIN':
+        return <AdminPanel onLogout={handleLogout} />;
       default:
-        return <RoleSelector onSelect={setRole} />;
+        // Renderiza o login se a função for desconhecida ou houver um erro
+        return <Login />;
     }
   };
 

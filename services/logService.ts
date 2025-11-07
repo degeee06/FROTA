@@ -1,33 +1,9 @@
 import { TripLog, LogStatus } from '../types';
 import { supabase } from './supabaseClient';
 
-// Helper para encontrar ou criar um motorista, retornando seu ID.
-const getOrCreateDriver = async (driverName: string): Promise<string> => {
-    const cleanName = driverName.trim();
-    let { data: driver, error: selectError } = await supabase
-        .from('drivers')
-        .select('id')
-        .eq('name', cleanName)
-        .single();
-    
-    if (selectError && selectError.code !== 'PGRST116') { // PGRST116: "0 rows found"
-        throw selectError;
-    }
-    
-    if (driver) return driver.id;
-
-    const { data: newDriver, error: insertError } = await supabase
-        .from('drivers')
-        .insert({ name: cleanName })
-        .select('id')
-        .single();
-    
-    if (insertError) throw insertError;
-    return newDriver!.id;
-};
-
 // Helper para encontrar ou criar um veículo, retornando seu ID.
 const getOrCreateVehicle = async (model: string, licensePlate: string): Promise<string> => {
+    // FIX: Added missing '=' for variable assignment.
     const cleanPlate = licensePlate.trim().toUpperCase();
     let { data: vehicle, error: selectError } = await supabase
         .from('vehicles')
@@ -51,8 +27,10 @@ const getOrCreateVehicle = async (model: string, licensePlate: string): Promise<
     return newVehicle!.id;
 };
 
-// Busca os logs do Supabase com paginação
-export const getLogs = async (page?: number, limit?: number): Promise<{ logs: TripLog[], totalCount: number }> => {
+// Busca os logs do Supabase com opções de paginação e filtro por motorista
+export const getLogs = async (options: { page?: number, limit?: number, driverId?: string } = {}): Promise<{ logs: TripLog[], totalCount: number }> => {
+  const { page, limit, driverId } = options;
+  
   let query = supabase
     .from('trip_logs')
     .select(`
@@ -61,6 +39,10 @@ export const getLogs = async (page?: number, limit?: number): Promise<{ logs: Tr
       vehicle:vehicles(model, license_plate)
     `, { count: 'exact' })
     .order('start_time', { ascending: false });
+
+  if (driverId) {
+    query = query.eq('driver_id', driverId);
+  }
 
   if (page && limit) {
     const from = (page - 1) * limit;
@@ -92,13 +74,22 @@ export const getLogs = async (page?: number, limit?: number): Promise<{ logs: Tr
   return { logs: formattedLogs, totalCount: count ?? 0 };
 };
 
-// Adiciona um novo log, criando motorista/veículo se necessário
-export const addLog = async (data: Omit<TripLog, 'id' | 'startTime' | 'status' | 'endTime' | 'endKm'>): Promise<TripLog> => {
-  const driverId = await getOrCreateDriver(data.driverName);
+export interface AddLogPayload {
+  driverId: string;
+  driverName: string;
+  vehicle: string;
+  licensePlate: string;
+  origin: string;
+  destination: string;
+  startKm: number;
+}
+
+// Adiciona um novo log usando o ID do motorista logado
+export const addLog = async (data: AddLogPayload): Promise<TripLog> => {
   const vehicleId = await getOrCreateVehicle(data.vehicle, data.licensePlate);
 
   const newLogData = {
-    driver_id: driverId,
+    driver_id: data.driverId,
     vehicle_id: vehicleId,
     origin: data.origin,
     destination: data.destination,
@@ -117,11 +108,17 @@ export const addLog = async (data: Omit<TripLog, 'id' | 'startTime' | 'status' |
     throw new Error('Falha ao adicionar novo registro.');
   }
   
+  // Retorna um objeto TripLog completo para atualizar a UI imediatamente
   return {
-    ...data,
     id: insertedLog.id,
+    driverName: data.driverName,
+    vehicle: data.vehicle,
+    licensePlate: data.licensePlate,
+    origin: data.origin,
+    destination: data.destination,
+    startKm: data.startKm,
     startTime: new Date(insertedLog.start_time),
-    status: LogStatus.IN_PROGRESS
+    status: LogStatus.IN_PROGRESS,
   };
 };
 

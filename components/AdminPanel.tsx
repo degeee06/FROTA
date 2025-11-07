@@ -3,6 +3,7 @@ import { getLogs } from '../services/logService';
 import { TripLog, LogStatus } from '../types';
 import { AnalyticsDashboard } from './AnalyticsDashboard';
 import { DownloadIcon } from './icons/DownloadIcon';
+import { LogoutIcon } from './icons/LogoutIcon';
 
 // Declaração para o TypeScript reconhecer as bibliotecas globais do jspdf
 declare const jspdf: any;
@@ -18,7 +19,7 @@ const StatusBadge: React.FC<{ status: LogStatus }> = ({ status }) => {
 
 const LOGS_PER_PAGE = 10;
 
-export const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+export const AdminPanel: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
   const [paginatedLogs, setPaginatedLogs] = useState<TripLog[]>([]);
   const [allLogs, setAllLogs] = useState<TripLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +31,7 @@ export const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     try {
       setLoading(true);
       setError(null);
-      const { logs, totalCount } = await getLogs(page, LOGS_PER_PAGE);
+      const { logs, totalCount } = await getLogs({ page, limit: LOGS_PER_PAGE });
       setPaginatedLogs(logs);
       setTotalPages(Math.ceil(totalCount / LOGS_PER_PAGE));
     } catch (err) {
@@ -44,7 +45,7 @@ export const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
   useEffect(() => {
     const fetchAllLogsForAnalytics = async () => {
         try {
-            const { logs } = await getLogs(); // No params fetches all
+            const { logs } = await getLogs({}); // No params fetches all
             setAllLogs(logs);
         } catch (err) {
             console.error("Failed to fetch all logs for analytics");
@@ -105,8 +106,9 @@ export const AdminPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <button onClick={handleDownloadPdf} title="Baixar relatório em PDF" className="bg-gray-700 hover:bg-gray-600 text-white font-bold p-2 rounded-lg transition-colors">
                 <DownloadIcon className="h-6 w-6" />
             </button>
-            <button onClick={onBack} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-              Voltar
+            <button onClick={onLogout} title="Sair" className="flex items-center gap-2 bg-gray-700 hover:bg-red-600/50 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+              <LogoutIcon className="h-5 w-5" />
+              Sair
             </button>
         </div>
       </div>

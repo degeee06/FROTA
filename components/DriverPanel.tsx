@@ -1,17 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getLogs, addLog, completeLog } from '../services/logService';
-import { TripLog, LogStatus } from '../types';
+import { TripLog, LogStatus, UserProfile } from '../types';
+import { LogoutIcon } from './icons/LogoutIcon';
 
-const DRIVER_DATA_KEY = 'driverData';
+const DRIVER_DATA_KEY = 'driverVehicleData';
 
 // A form to start a new trip
 const NewLogForm: React.FC<{ 
     onLogAdded: (log: TripLog) => void;
     allLogs: TripLog[];
-}> = ({ onLogAdded, allLogs }) => {
+    userProfile: UserProfile;
+}> = ({ onLogAdded, allLogs, userProfile }) => {
   
   const [formData, setFormData] = useState({
-    driverName: '',
     vehicle: '',
     licensePlate: '',
     origin: 'Sede Central',
@@ -23,7 +24,7 @@ const NewLogForm: React.FC<{
   const [error, setError] = useState<string | null>(null);
   const [isKmEditable, setIsKmEditable] = useState(true);
 
-  // Load saved data from localStorage on initial render
+  // Load saved vehicle data from localStorage on initial render
   useEffect(() => {
     try {
         const savedData = localStorage.getItem(DRIVER_DATA_KEY);
@@ -31,27 +32,25 @@ const NewLogForm: React.FC<{
             const parsedData = JSON.parse(savedData);
             setFormData(prev => ({
                 ...prev,
-                driverName: parsedData.driverName || '',
                 vehicle: parsedData.vehicle || '',
                 licensePlate: parsedData.licensePlate || '',
                 origin: parsedData.origin || 'Sede Central',
             }));
         }
     } catch (e) {
-        console.error("Failed to parse driver data from localStorage", e);
+        console.error("Failed to parse vehicle data from localStorage", e);
     }
   }, []);
 
-  // Auto-save data to localStorage whenever it changes
+  // Auto-save vehicle data to localStorage whenever it changes
   useEffect(() => {
     const dataToSave = {
-        driverName: formData.driverName,
         vehicle: formData.vehicle,
         licensePlate: formData.licensePlate,
         origin: formData.origin,
     };
     localStorage.setItem(DRIVER_DATA_KEY, JSON.stringify(dataToSave));
-  }, [formData.driverName, formData.vehicle, formData.licensePlate, formData.origin]);
+  }, [formData.vehicle, formData.licensePlate, formData.origin]);
 
   // Pre-fill and lock startKm based on the last trip for the current license plate
   useEffect(() => {
@@ -82,9 +81,9 @@ const NewLogForm: React.FC<{
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { driverName, vehicle, licensePlate, origin, destination, startKm } = formData;
+    const { vehicle, licensePlate, origin, destination, startKm } = formData;
 
-    if (!driverName || !vehicle || !licensePlate || !origin || !destination || !startKm) {
+    if (!vehicle || !licensePlate || !origin || !destination || !startKm) {
       setError('Todos os campos são obrigatórios.');
       return;
     }
@@ -100,7 +99,6 @@ const NewLogForm: React.FC<{
         return;
     }
 
-    // This validation is now implicitly handled by the auto-fill, but kept as a safeguard
     const lastLogForVehicle = allLogs
         .filter(log => log.licensePlate.toLowerCase() === licensePlate.toLowerCase() && log.status === LogStatus.COMPLETED && log.endKm)
         .sort((a, b) => b.endTime!.getTime() - a.endTime!.getTime())[0];
@@ -114,7 +112,8 @@ const NewLogForm: React.FC<{
     setError(null);
     try {
       const newLog = await addLog({
-        driverName,
+        driverId: userProfile.id,
+        driverName: userProfile.fullName || 'Motorista',
         vehicle,
         licensePlate,
         origin,
@@ -133,8 +132,11 @@ const NewLogForm: React.FC<{
   return (
     <div className="bg-gray-800 p-6 rounded-xl shadow-lg">
       <h2 className="text-xl font-bold text-white mb-4">Iniciar Nova Viagem</h2>
+      <div className="bg-gray-700/50 p-3 rounded-lg mb-4">
+        <p className="text-sm text-gray-400">Motorista</p>
+        <p className="font-bold text-white text-lg">{userProfile.fullName || 'Nome não definido'}</p>
+      </div>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <input type="text" name="driverName" placeholder="Nome do Motorista" value={formData.driverName} onChange={handleChange} className="w-full bg-gray-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" required/>
         <input type="text" name="vehicle" placeholder="Veículo" value={formData.vehicle} onChange={handleChange} className="w-full bg-gray-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" required />
         <input type="text" name="licensePlate" placeholder="Placa" value={formData.licensePlate} onChange={handleChange} className="w-full bg-gray-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" required />
         <select name="origin" value={formData.origin} onChange={handleChange} className="w-full bg-gray-700 text-white rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none" required>
@@ -214,7 +216,7 @@ const ActiveLog: React.FC<{ log: TripLog; onLogCompleted: (log: TripLog) => void
 };
 
 
-export const DriverPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+export const DriverPanel: React.FC<{ userProfile: UserProfile; onLogout: () => void }> = ({ userProfile, onLogout }) => {
   const [logs, setLogs] = useState<TripLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -223,15 +225,14 @@ export const DriverPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     try {
       setLoading(true);
       setError(null);
-      // Adapt to the new return structure from getLogs
-      const { logs: data } = await getLogs();
+      const { logs: data } = await getLogs({ driverId: userProfile.id });
       setLogs(data);
     } catch (err) {
       setError('Falha ao carregar os registros.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userProfile.id]);
 
   useEffect(() => {
     fetchLogs();
@@ -251,8 +252,9 @@ export const DriverPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             <h1 className="text-2xl md:text-3xl font-bold text-white">Painel do Motorista</h1>
             <p className="text-gray-400">Gerencie suas viagens.</p>
         </div>
-        <button onClick={onBack} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-          Voltar
+        <button onClick={onLogout} title="Sair" className="flex items-center gap-2 bg-gray-700 hover:bg-red-600/50 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+          <LogoutIcon className="h-5 w-5" />
+          Sair
         </button>
       </div>
 
@@ -264,7 +266,7 @@ export const DriverPanel: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             {activeLog ? (
                 <ActiveLog log={activeLog} onLogCompleted={handleLogChange} />
             ) : (
-                <NewLogForm onLogAdded={handleLogChange} allLogs={logs} />
+                <NewLogForm onLogAdded={handleLogChange} allLogs={logs} userProfile={userProfile} />
             )}
         </>
       )}
