@@ -35,8 +35,8 @@ export const getLogs = async (options: { page?: number, limit?: number, driverId
     .from('trip_logs')
     .select(`
       *,
-      profiles ( full_name ),
-      vehicles ( model, license_plate )
+      profiles!trip_logs_driver_id_fkey(full_name),
+      vehicles!trip_logs_vehicle_id_fkey(model, license_plate)
     `, { count: 'exact' })
     .order('start_time', { ascending: false });
 
@@ -136,8 +136,8 @@ export const completeLog = async (id: string, endKm: number): Promise<TripLog> =
     .eq('id', id)
     .select(`
         *,
-        profiles ( full_name ),
-        vehicles ( model, license_plate )
+        profiles!trip_logs_driver_id_fkey(full_name),
+        vehicles!trip_logs_vehicle_id_fkey(model, license_plate)
     `)
     .single();
 
