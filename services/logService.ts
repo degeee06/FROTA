@@ -34,9 +34,9 @@ export const getLogs = async (options: { page?: number, limit?: number, driverId
   let query = supabase
     .from('trip_logs')
     .select(`
-      id, origin, destination, start_km, end_km, start_time, end_time, status,
-      profiles(full_name),
-      vehicles(model, license_plate)
+      *,
+      profiles ( full_name ),
+      vehicles ( model, license_plate )
     `, { count: 'exact' })
     .order('start_time', { ascending: false });
 
@@ -135,9 +135,9 @@ export const completeLog = async (id: string, endKm: number): Promise<TripLog> =
     .update(updatedData)
     .eq('id', id)
     .select(`
-        id, origin, destination, start_km, end_km, start_time, end_time, status,
-        profiles(full_name),
-        vehicles(model, license_plate)
+        *,
+        profiles ( full_name ),
+        vehicles ( model, license_plate )
     `)
     .single();
 
