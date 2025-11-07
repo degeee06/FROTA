@@ -1,0 +1,5 @@
+{
+  "name": "Controle de Frota",
+  "description": "Um aplicativo moderno para motoristas registrarem a quilometragem e informações de veículos da empresa, simplificando e automatizando o trabalho da portaria.",
+  "requestFramePermissions": []
+}
