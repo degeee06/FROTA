@@ -277,14 +277,14 @@ export const DriverPanel: React.FC<{ userProfile: UserProfile; onLogout: () => v
               <ul className="space-y-4">
                   {recentLogs.map(log => (
                       <li key={log.id} className="p-4 bg-gray-700/50 rounded-lg">
-                          <div className="flex justify-between items-center">
+                          <div className="flex justify-between items-start">
                               <div>
                                   <p className="font-semibold text-white">{log.origin} → {log.destination || 'N/A'}</p>
-                                  <p className="text-sm text-gray-400">{log.driverName} - {log.vehicle}</p>
+                                  <p className="text-sm text-gray-400">{log.vehicle} ({log.licensePlate})</p>
                               </div>
-                              <div className="text-right">
+                              <div className="text-right flex-shrink-0">
                                   <p className="font-bold text-white">{log.endKm && (log.endKm - log.startKm)} km</p>
-                                  <p className="text-sm text-gray-400">{log.endTime?.toLocaleDateString('pt-BR')}</p>
+                                  <p className="text-sm text-gray-400">{log.endTime?.toLocaleString('pt-BR')}</p>
                               </div>
                           </div>
                       </li>
